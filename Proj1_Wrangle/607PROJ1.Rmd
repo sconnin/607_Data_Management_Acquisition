@@ -1,0 +1,135 @@
+---
+title: "Proj1"
+author: "Sean Connin"
+date: "02/26/2021"
+output:
+  html_document:
+    df_print: paged
+    theme: lumen
+---
+
+## Project Description 
+
+Import a text file (tournamentinfo.txt) into R and then clean & wrangle that data for future analyses.The text file consists of a single, semi-structured, document containing chess tournament results and related information.  
+
+![Adapted from: https://www.masterclass.com/articles/chess-piece-guide](Chess.PNG)
+
+The project deliverable is a single csv file with data extracted from the parent text as well as related summary information, including the following attributes:
+
+* Player's Name
+* Player's State
+* Total Number of Points
+* Player’s Pre-Rating
+* Average Pre Chess Rating of Opponents
+
+Project files and related script are available on Github at the following URL: https://github.com/sconnin/607PROJ1.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(magrittr)
+library(stringr)
+library(tidyverse)
+library(kableExtra)
+```
+
+### STEP 1. Import Text Data into R
+
+I imported the text file using the read_delim() function. The result was a single column dataframe with 195 rows. It's worth noting that a multi-column data-frame could also be constructed during import as follows: 
+
+df <- read.delim("file path", header = FALSE, sep = "|")
+
+```{r, fig.width=5, fig.height=2}
+
+data <- read.delim("https://raw.githubusercontent.com/sconnin/607PROJ1/main/tournamentinfo.txt")
+
+```
+### STEP 2. Extract Key Attributes 
+
+To facilitate data review and string matching, I first converted the dataframe into a matrix, with each line of data as a single character string.
+
+![](2.PNG)
+
+Each player's record was distributed within consecutive 2-line sequences. Using str_match(), I pulled relevant data into separate, temporary, dataframes for each line and then combined these data-frames into a final, single, dataframe. The result was a Tidy dataset with one row entry for each player.
+
+Note: I used drop_na() to remove lines with non-alphanumeric data and thus avoid row errors during str_match(). 
+
+```{r,  message=FALSE, warning=FALSE,  results="hide" }
+
+df<-data%>%as.matrix()%>%str_trim()
+
+(d1<-df%>%str_match("^\\d+.+$")%>%
+        as.data.frame()%>%
+        drop_na()%>%
+        separate(1,c("Id", "Name", "Total_Points",
+        "R1","R2","R3","R4","R5","R6","R7"),sep="\\|"))
+
+(d2<-df%>%str_match("^\\D{2}\\s.+R:\\s*\\d+")%>%
+        as.data.frame()%>%drop_na()%>%
+        separate(1,c("State", "Temp"), sep="\\|")%>%
+        separate(2,c("e","Player_Pre_Ratings"), sep="R:")%>%
+        select(-e))
+
+df<-cbind(d1,d2)%>%relocate(Player_Pre_Ratings, .after=Name)%>%
+    relocate(State, .after=Name)%>%
+    relocate(Total_Points, .after=State)
+
+```
+View of dataframe (df) following Step 2:
+```{r}
+
+head(df, 5)%>%kbl%>%kable_material(c("striped"))
+
+```
+
+### STEP 3. Remove Word-Characters from Select Columns
+
+In this step I removed word-characters from columns ("R1-R7") containing combined game wins/losses and contender "Id" and then removed any remaining white-space from the respective values. 
+
+```{r}
+
+df%<>%mutate_at(vars("R1","R2","R3","R4","R5","R6","R7"), ~str_replace(.,"\\w\\s", ""))
+
+df[sapply(df,is.character)] <- lapply(df[sapply(df,is.character)], trimws)
+
+head(df, 5)%>%kbl%>%kable_material(c("striped"))
+
+```
+### STEP 4. Match Player Id and Pre_Player_Ratings 
+
+I then replaced each player's contender Id in columns R1-R7 with the latter's pre_player rating. To accomplish this, I matched opponent information (Id) across columns/rows. I received helpful suggestions on Stack Exchange to build code for this step: https://bit.ly/3qLtBP0.
+
+
+```{r}
+
+df[c("R1", "R2", "R3", "R4", "R5","R6","R7")] <- lapply(df[c("R1", "R2", "R3", "R4", "R5","R6","R7")], function(x) df$Player_Pre_Ratings[match(x, df$Id)])
+
+head(df, 5)%>%kbl%>%kable_material(c("striped"))
+```
+### STEP 5. Calculate Average Pre-Chess Rating of Opponents 
+
+In this step, I converted columns R1-R7 into numeric form and saved the mean of these values into a new column. 
+
+Note: The presence of NA values (empty cells) can impede row-mean calculations. To avoid this problem, I first converted all NA entries to 0. 
+
+```{r}
+df%<>%mutate_at(c("R1", "R2", "R3", "R4", "R5","R6","R7"), as.numeric)
+
+df%<>%replace(is.na(.),0)%>%
+    mutate(Avg_Pre_Chess_Rating_of_Opponent = rowMeans(df[,c("R1", "R2", "R3", "R4", "R5","R6","R7")]))%>%
+    mutate_at("Avg_Pre_Chess_Rating_of_Opponent", as.integer)
+                                   
+head(df, 5)%>%kbl%>%kable_material(c("striped"))
+
+```
+### STEP 6. Select and Save Final DataFrame in CSV Format
+
+In this final step, I selected the relevant subset of columns and exported this information into a .csv formatted file. 
+
+```{r}
+
+df%<>%select(Name, State, Total_Points, Player_Pre_Ratings,Avg_Pre_Chess_Rating_of_Opponent)
+
+write.csv(df, file = "607Proj1_complete.csv", row.names = FALSE)
+```
