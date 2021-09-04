@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Books>
+<Book>
+	<ID>1</ID>
+	<Title> Their Eyes Were Watching God</Title>
+	<Author>Zora Neale Hurston</Author>
+	<ISBN>9780060916503</ISBN>
+	<Publisher>HARPERCOLLINS PUBLISHERS</Publisher>
+	<Pages>207</Pages>
+	<Copyright Year>1990</Copyright Year>
+</Book>
+<Book>
+	<ID>2</ID>
+	<Title>Sand County Almanac With Essays on Conservation from Round River</Title>
+	<Author>Aldo Leopold</Author>
+	<ISBN>9780345345059</ISBN>
+	<Publisher>PENGUIN RANDOM HOUSE</Publisher>
+	<Pages>320</Pages>
+	<Copyright Year>1966</Copyright Year>
+</Book>
+<Book>
+	<ID>3</ID>
+	<Title>Desert Solitaire</Title>
+	<Author>Edward Abbey</Author>
+	<ISBN>9780671695880</ISBN>
+	<Publisher>POCKET BOOKS</Publisher>
+	<Pages>288</Pages>
+	<Copyright Year>1990</Copyright Year>
+</Book>
+</Books>

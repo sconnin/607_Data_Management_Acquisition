@@ -1,0 +1,83 @@
+---
+title: "DATA607_HW7"
+author: "Sean Connin"
+data: 03/21/2021
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview: Working with XML and JSON in R
+
+For this assignment we created individual xml, JSON, and html files to store information related to books we have read and enjoyed. After uploading these files to the internet, we developed R scripts to retrieve the files and then the information into separate dataframes.
+
+This exercise facilitates our understanding of xml, JSON, and html file structures as well as our ablity to manipulate this information. 
+
+```{r message=FALSE, warning=FALSE}
+library(xml2)
+library(flatxml)
+library(methods)
+library(htmltab)
+library(kableExtra)
+library(tidyverse)
+library(magrittr)
+library(jsonlite)
+
+
+```
+## HTML 
+
+Read html table and save into dataframe. In this case, I used the htmltab function.
+
+```{r message=FALSE, warning=FALSE}
+
+#Read in html table from github and save as dataframe
+
+url <- "https://raw.githubusercontent.com/sconnin/DATA607_HW7/main/HW7_html_table.html?token=APC5QM2CW2P3H5W6W6QXZSTAK6PXI"
+
+df_books<-htmltab(doc=url)
+
+#Print table without assigned row numbers
+
+row.names(df_books) <- NULL
+
+df_books%>%kbl%>%kable_material(c("striped"))
+
+```
+## XML
+
+Read xml file from Github and convert to dataframe. I used the flatxml library for this purpose.  
+
+```{r message=FALSE, warning=FALSE}
+
+# Convert the input xml file to a data frame.
+
+df_xml <- fxml_importXMLFlat("https://raw.githubusercontent.com/sconnin/DATA607_HW7/main/books.xml")
+
+
+df_xml%>%kbl%>%kable_material(c("striped"))
+```
+## JSON
+
+Read Json file from Github and convert to dataframe. I used the JSONlite library for this purpose.
+
+```{r message=FALSE, warning=FALSE}
+
+url <- "https://raw.githubusercontent.com/sconnin/DATA607_HW7/main/HW7_JSON.json"
+
+books <- jsonlite::fromJSON(url, simplifyVector = TRUE)
+
+df_bks <- data.frame(books)
+
+row.names(df_bks)
+
+df_bks%>%kbl%>%kable_material(c("striped"))
+```
+
+## Assessment
+
+The dataframes produced from html and JSON file formats are essentially identical. The dataframe produced from the xml file format has been flattened but still retains the hierarchical relationships (e.g., root, path) inherent to xml. Additional manipulation is required to remove these features.

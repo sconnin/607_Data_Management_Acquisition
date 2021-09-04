@@ -1,0 +1,8 @@
+{
+"ID": [1, 2, 3],
+"Title": ["Their Eyes Were Watching God", "Sand County Almanac With Essays on Conservation from Round River", "Desert Solitaire"],
+"Author" :["Zora Neale Hurston", "Aldo Leopold", "Edward Abbey"],
+"ISBN" :["9780060916503", "9780345345059", "9780671695880"],
+"Pages": [207, 320, 288],
+"Copyright Year": [1990, 1996, 1990]
+}

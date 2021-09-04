@@ -1,0 +1,170 @@
+---
+title: "Data 607 - Connin HW1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Overview
+
+The 'Atlas Of Redistricting' is a project published online by Nate Silver's "FiveThirtyEight" website early 2018. The project describes and maps various congressional redistricting scenarios in the U.S. in order to explore how changes in district boundaries impact the racial and partisan makeup of congress. 
+
+A description and data used in the project can be found at the following websites.
+
+Project description:
+
+https://fivethirtyeight.com/features/we-drew-2568-congressional-districts-by-hand-heres-how/
+
+Redistricting atlas: 
+
+https://projects.fivethirtyeight.com/redistricting-maps/
+
+Redistricting atlas data:
+
+https://github.com/fivethirtyeight/redistricting-atlas-data
+
+The code below supports an initial review of the data sets ('districts', 'county_assignments', 'states'). 
+
+```{r}
+# load R packages
+
+library(tidyverse)
+library(magrittr)
+library(readr)
+library(ggplot2)
+library(cowplot)
+
+# Read in 358.com project data
+
+districts <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/redistricting-atlas-data/master/districts.csv")
+
+county_files <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/redistricting-atlas-data/master/county_assignments.csv")
+
+states <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/redistricting-atlas-data/master/states.csv")
+
+```
+## The Datasets
+```{r}
+
+# review dataframe dimensions and components 
+
+districts%>%glimpse()
+
+county_files%>%glimpse()
+
+states%>%glimpse()
+
+
+```
+## Guiding Question
+
+Are political outcomes (republican vs democratic congressional seats) in the redistricting scenarios related to changing percentages of minority voters at the state level? 
+
+I have organized/cleaned the 'districts' dataset in order to assess the question above. 
+```{r}
+# create a view of the districts dataframe
+
+districts%>%view()
+
+# return total number of missing values
+
+sprintf("The total number of NA and NAN is %d", sum(is.na(districts)))
+
+# identify/count missing values in district by column 
+
+map(districts, ~sum(is.na(.))) #-- > using purrr, note (.) refers to cols
+
+# count the number of duplicate rows
+
+sprintf("The number of duplicate rows is %d", sum(duplicated(districts)))
+
+# select subset of columns for new dataframe
+
+d <- districts%>%select(-c(current_map, impossible))
+
+#set column names to lower case
+
+names(d)%<>%tolower
+
+#update column names for districts dataframe
+
+d%<>%dplyr::rename(state_fips_code=statefp, district_number=district,cook_partisan_index=pvi, non_hispanic_white=`non-hispanic white`, african_american =`african-american`, hispanic_latino =`hispanic/latino`, native_american =`native american`, pacific_islander =`pacific islander`)
+
+# remove trailing '%' from values in Other column
+
+d<-separate(data = d, col = other, into = c("other"), sep = "%")
+
+# change 'other' col to dbl format
+
+d%<>%mutate(other = as.numeric(other))
+
+# pivot select cols to long form
+
+d<-pivot_longer(d, cols=9:15, names_to = 'ethnicity', values_to ='percent_of_voters')
+
+#reduce number of categorical variables in race_category column
+
+d <- mutate(d, race_category = ifelse(race_category == "Non-Hispanic White Majority", "white_majority", "non_white_majority"))
+
+# subset dataframe on maptypes, rows: current, democrat, republican, competitive ("|" --> 'or')
+
+d <- filter(d, maptype == "current" | maptype =="Dem" | maptype =="GOP" | maptype == "Competitive")
+
+# rename category values in maptype column
+
+d<-d%>%mutate(maptype=recode(maptype, 'Competitive'='competitive', 'Dem'='democrat', 'GOP'='republican'))
+
+# review updates to dataframe
+
+head(d, 5)
+
+```
+## Exploratory Data Analyis
+
+Here we compute basic statistical measures for all numerical variables in the dataset.
+
+In addition, we also compare changes in the percent of minorities voting in Texas (a potential swing state) under two scenarios: 'current' vs. 'competitive'. 
+
+The latter data are drawn from 2010 census results while the former reflects estimates based on redistricting to enhance two-party competitiveness at the district level.
+
+```{r}
+
+# return statistical measures for numerical variables 
+
+summary(d)
+
+# a boxplot graph of percent of votes by ethnicity in 2010
+
+(ethnic1 <- d%>%group_by(state)%>%filter(state =='TX')%>%filter(maptype == 'current')%>%group_by(ethnicity) %>%ggplot(aes(x=ethnicity,y=percent_of_voters))+geom_boxplot()+coord_flip()+ggtitle('Ethnic Breakdown of Voters in Texas,\n 2010')+theme(plot.title = element_text(hjust=0.5)))
+
+# a boxplot graph of percent of votes by ethnicity in the competitive scenario
+
+(ethnic2 <- d%>%group_by(state)%>%filter(state =='TX')%>%filter(maptype == 'competitive')%>%group_by(ethnicity)%>%ggplot(aes(x=ethnicity,y=percent_of_voters))+geom_boxplot()+coord_flip()+ggtitle('Ethnic Breakdown of Voters in Texas,\n Competitive Scenario')+theme(plot.title = element_text(hjust=0.5)))
+
+# calculate the mean/median percent of voting by ethnic groups compared between current and competitive scenarios
+
+(scenario <- d%>%group_by(maptype, ethnicity)%>%filter(state =='TX')%>%filter(maptype == 'current'| maptype=='competitive')%>%summarize(mean_pct = mean(percent_of_voters), median_pct=median(percent_of_voters)))
+
+# compare scenarios using stacked barplot
+
+ggplot(scenario, aes(fill=ethnicity, y=mean_pct, x=maptype))+geom_bar(position='stack', stat='identity')+ggtitle('Mean Percentage of Voters\n in Two Districting Scenarios\n in Texas')+theme(plot.title = element_text(hjust=0.5))+theme(axis.title.x = element_blank())+theme(axis.title.y = element_blank())
+    
+ggplot(scenario, aes(fill=ethnicity, y=median_pct, x=maptype))+geom_bar(position='stack', stat='identity')+ggtitle('Median Percentage of Voters\n in Two Districting Scenarios\n in Texas')+theme(plot.title = element_text(hjust=0.5))+theme(axis.title.x = element_blank())+theme(axis.title.y = element_blank())
+
+```
+## Findings and Recommendations
+
+Initial review of the data indicates the following:
+
+1. Non-hispanic whites comprise the largest voting block in Texas followed by Latinos and African Americans. Variance in voting between districts by ethnic groups, correlates with the percent of votes attributable to each group. 
+
+2. There are no state-level differences in the mean percent of votes by ethnic group compared between the 'current' vs. 'competitive' scenarios. 
+
+3. The median value for percent of votes by non_hispanic whites decreased from 57.7% to 49.8% (state level) compared between the 'current' vs. 'competitive' scenarios - indicating a decrease in the relative percentage of white voters in select districts as a result of redistricting.  In contrast, the median values (state level) for other ethnic groups remained relatively unchanged. 
+
+4. Additional analyses should focus at the district level in order to explicate factors that shape election outcomes at the state level. These factors may include voter population densities, district geometries, etc. 
+
+5. The three sets of data provided by the authors lack a common variable to enable joins between these sets. Additional information should be acquired to link these sets for more extensive analyses. 
+
+

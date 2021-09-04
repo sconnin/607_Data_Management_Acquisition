@@ -1,0 +1,102 @@
+---
+title: "Data607_HW3"
+author: "Sean Connin"
+date: "02/19/2021"
+output:
+  html_document:
+    df_print: paged
+    theme: lumen
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+#open libraries
+
+library(stringr)
+library(magrittr)
+library(tidyverse)
+library(readr)
+library(kableExtra)
+```
+
+## 1. College Majors Data Set
+
+Using the 173 majors listed in fivethirtyeight.com’s College Majors dataset [https://fivethirtyeight.com/features/the-economic-guide-to-picking-a-college-major/], provide code that identifies the majors that contain either "DATA" or "STATISTICS"
+
+*Approach:*
+
+1. Import dataset
+2. Use str_detect() to identify strings containing "STATISTICS" or "DATA"
+3. Subset rows with filter() retrieve these strings
+
+
+```{r}
+
+
+majors <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/college-majors/majors-list.csv")
+
+majors%<>%filter(str_detect(Major, "STATISTICS|DATA"))
+
+majors%>%kbl()%>%kable_material(c("striped"))
+                           
+```
+## 2. Write code that transforms the data below:
+
+[1] "bell pepper"  "bilberry"     "blackberry"   "blood orange"
+[5] "blueberry"    "cantaloupe"   "chili pepper" "cloudberry"  
+[9] "elderberry"   "lime"         "lychee"       "mulberry"    
+[13] "olive"        "salal berry"
+
+Into a format like this:
+
+c("bell pepper", "bilberry", "blackberry", "blood orange", "blueberry", "cantaloupe", "chili pepper", "cloudberry", "elderberry", "lime", "lychee", "mulberry", "olive", "salal berry")
+
+*Approach: adapted from https://bit.ly/2N4Q6zW*
+
+1. shQuote() - dbl quote a string to be passed into os shell, cmd is Windows default
+2. paste() - create a character string and separate results with a comma  via the collapse argument
+3. cat() - outputs as a character vector
+```{r}
+d<- c("bell pepper", "bilberry", "blackberry", "blood orange", "blueberry", "cantaloupe", "chili pepper", "cloudberry", "elderberry", "lime", "lychee", "mulberry", "olive", "salal berry")
+
+
+d<-(cat(paste(shQuote(d, type="cmd"), collapse=", ")))
+
+
+
+
+```
+## 3. Describe, in words, what these expressions will match:
+
+(.)\1\1  - <span style="color: green;">*missing quotes, no match, \ treated as a literal*</span>
+
+"(.)(.)\\2\\1" - <span style="color: green;">*matches two single character capture groups followed by their reverse order.*</span>
+
+<span style="color: green;">*For example: if x= "bannnaannana" the match is "naan"*</span>
+
+(..)\1 - <span style="color: green;">*missing quotes, no match, \ treated as a literal*</span>
+
+"(.).\\1.\\1" - <span style="color: green;">*matches a single character capture group followed by another character, this pattern repeats, and ends with the first capture group.*</span>
+
+ <span style="color: green;">*For example: if x= "bannnaannantnan" the match is "nantn"*</span>
+
+*"(.)(.)(.).*\\3\\2\\1" - <span style="color: green;">*matches a sequence of three single character capture groups followed by a character that repeats one or more time followed by a sequence of the three capture groups in reverse order.*</span>
+
+<span style="color: green;">*For example: if x= "banntaannantnan" the match is"anntaanna"*</span>
+
+## 4. Construct regular expressions to match words that:
+
+Start and end with the same character.
+
+<span style="color: blue;">^(.).*\\1$</span>
+
+Contain a repeated pair of letters (e.g. "church" contains "ch" repeated twice.)
+
+<span style="color: blue;">(\\w{2}).*?(\\1)</span> Adapted from: https://bit.ly/2Ng5lps
+
+Contain one letter repeated in at least three places (e.g. "eleven" contains three "e"s.
+
+<span style="color: blue;">(.).*?(\\1).*?(\\1).*?$</span>
+

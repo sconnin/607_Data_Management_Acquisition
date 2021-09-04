@@ -1,0 +1,89 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+## Clean and subset data for a genre preferences csv
+
+1. Split column string values to create new columns
+2. Rename new columns
+3. Create ID column
+
+```{r}
+
+temp<-m_survey
+
+temp%<>%select(Genres_Liked)%>%stringr::str_split_fixed(temp$Genres_Liked, ",",4)
+
+liked<-temp%>%select(Genres_Liked)%>%str_split_fixed(temp$Genres_Liked, ",",4)
+liked
+liked<-temp%>%select(Genres_Liked)%>%str_split_fixed(temp$Genres_Liked, ",",4)
+liked
+%>%mutate=(str_split_fixed(Genres_Liked, ",",4))
+liked
+%>%data.frame()
+liked
+
+id <- rownames(liked)
+
+liked <- cbind(id=id, liked)
+
+liked
+
+
+#split2%<>%dplyr::rename(First_Choice='X1', Second_Choice='X2', Third_Choice='X3', Fourth_Choice='X4')
+
+#split2
+
+# create an id column and relocate id column to front of table
+
+#split2%<>% mutate(Id = row_number())%>%relocate(Id)
+
+
+liked%<>%pivot_longer(c(X1, X2,X3,X4),  values_to = 'Favorite_Genres', values_drop_na = FALSE)%>%
+    select(-name)%>%
+    mutate(Favorite_Genres = na_if(Favorite_Genres, ""))%>%
+    group_by(id)%>% arrange(Favorite_Genres)
+    
+
+liked
+
+#liked%<>%pivot_longer(c(X1, X2,X3,X4),  values_to = 'Favorite_Genres', values_drop_na = #FALSE)%>%select(-name)%>%
+  #mutate(Favorite_Genres = na_if(Favorite_Genres, ""))
+
+split3<-str_split_fixed(m_survey$Genres_Disliked, ",", 4)%>%data.frame()
+
+split3%<>%dplyr::rename(First_Choice='X1', Second_Choice='X2', Third_Choice='X3', Fourth_Choice='X4')
+
+split3%<>% mutate(Id = row_number())%>%relocate(Id)
+
+split3%<>%pivot_longer(c(X1, X2,X3,X4), values_to = 'Disliked_Genres')%>%select(-name)%>%
+  mutate(Disliked_Genres = na_if(Disliked_Genres, ""))
+
+sp <- inner_join(split2, split3, by = 'Id')
+
+sp%<>%pivot_wider(names_from=Favorite_Genres, values_from = Rating)%>% rename_all(make.names)
+
+```
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

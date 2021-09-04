@@ -1,0 +1,231 @@
+---
+title: "607HW10_Connin"
+date: "4/13/21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Overview
+
+This project recreates the code provided in Chapter 2 of Text Mining with R: A Tidy Approach. 
+
+https://www.tidytextmining.com/sentiment.html
+
+
+```{r}
+#load libraries and get sentiment lexicon
+
+library(tidytext)
+library(textdata) #required to download lexicon
+library(stringr)
+library(dplyr)
+library(janeaustenr)
+library(wordcloud)
+library(reshape2)
+
+get_sentiments( "afinn")  # assigns relative value to word
+get_sentiments( "nrc") # assigns category of emotion to word
+get_sentiments( "bing") #assigns categories of positive or negative to word
+
+```
+
+### Create corpus
+
+Import Jane Austen novels and convert text to corpus with tidy format. These texts did not require separate cleaning. 
+
+
+Note: unnest_tokens -- creates one-token-per-row structure. A token is a meaningful unit of text (e.g., a word). This step cleans and tokenizes the text in a single step. 
+
+```{r}
+
+# Create corpus of Jane Austen novels. Create columns (identifiers) to track line number and chapter.   
+
+tidy_books <- austen_books()%>%
+  group_by(book)%>%
+    mutate(linenumber = row_number(), 
+    chapter = cumsum(str_detect(text, regex("^chapter [\\divxlc]", 
+    ignore_case = TRUE)))) %>%
+    ungroup()%>%
+    unnest_tokens(word, text) # produces a tokenized word column; we will perform inner-joins and anti-joins on this 
+```
+### Match corpus for Emma and lexicon.
+
+```{r}
+
+# join intersection of nrc lexicon (positive words) and word tokens from book, Emma. 
+
+nrc_joy <- get_sentiments("nrc") %>% 
+  filter(sentiment == "joy") # grab the lexicon associated with joy words
+
+tidy_books %>%
+  filter(book == "Emma") %>%
+  inner_join(nrc_joy) %>% #use inner_join to create the word matches
+  count(word, sort = TRUE)  # counts the most common joy word associations in Emma
+
+```
+### Match corpus of all Austen books in package with lexicon
+
+```{r}
+library(tidyr)
+
+jane_austen_sentiment <- tidy_books %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(book, index = linenumber %/% 80, sentiment) %>% # count matches using integer division to break into 80 line sections
+  pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>% #separate negative and positive counts
+  mutate(sentiment = positive - negative)
+
+```
+
+### Plot sentiment scores
+
+```{r}
+library(ggplot2)
+
+ggplot(jane_austen_sentiment, aes(index, sentiment, fill = book)) + # fill colorizes the graphs
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~book, ncol = 2, scales = "free_x")
+```
+## Compare the three sentiment lexicons
+
+
+```{r}
+
+# Just use Pride and Prejudice
+
+pride_prejudice <- tidy_books %>% 
+  filter(book == "Pride & Prejudice")
+
+afinn <- pride_prejudice %>% 
+  inner_join(get_sentiments("afinn")) %>% 
+  group_by(index = linenumber %/% 80) %>% 
+  summarise(sentiment = sum(value)) %>% 
+  mutate(method = "AFINN")
+
+bing_and_nrc <- bind_rows(
+  pride_prejudice %>% 
+    inner_join(get_sentiments("bing")) %>%
+    mutate(method = "Bing et al."), pride_prejudice %>% 
+    inner_join(get_sentiments("nrc") %>% 
+    filter(sentiment %in% c("positive", "negative"))) %>%
+    mutate(method = "NRC")) %>%
+    
+    count(method, index = linenumber %/% 80, sentiment) %>%
+    pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>% 
+    mutate(sentiment = positive - negative)
+
+# bind net sentiments for each chunk of text 
+
+bind_rows(afinn, bing_and_nrc) %>%
+  ggplot(aes(index, sentiment, fill = method)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~method, ncol = 1, scales = "free_y")
+
+
+```
+### Get lexicon
+
+```{r}
+get_sentiments("nrc") %>% 
+  filter(sentiment %in% c("positive", "negative")) %>% 
+  count(sentiment)
+
+get_sentiments("bing") %>% 
+  count(sentiment)
+
+```
+### Plot word matches
+
+```{r}
+bing_word_counts <- tidy_books %>%
+    inner_join(get_sentiments("bing")) %>%
+    count(word, sentiment, sort = TRUE) %>%
+    ungroup() 
+
+
+    #pipe into ggplot
+    
+bing_word_counts %>%
+  group_by(sentiment) %>%
+  slice_max(n, n = 10) %>% 
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = "free_y") +
+  labs(x = "Contribution to sentiment",
+       y = NULL)
+
+
+
+```
+### Customize stop words
+
+```{r}
+custom_stop_words <- bind_rows(tibble(word = c("miss"),  
+                                      lexicon = c("custom")), 
+                               stop_words)
+
+custom_stop_words
+```
+
+## Create Word clouds
+
+```{r}
+library(wordcloud)
+
+tidy_books %>%
+  anti_join(stop_words) %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100))
+```
+### Customize clouds
+
+```{r}
+tidy_books %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+## Other options
+
+
+```{r}
+
+#split dataframe by chapter using regex
+
+austen_chapters <- austen_books() %>%
+  group_by(book) %>%
+  unnest_tokens(chapter, text, token = "regex", 
+                pattern = "Chapter|CHAPTER [\\dIVXLC]") %>%
+  ungroup()
+
+austen_chapters %>% 
+  group_by(book) %>% 
+  summarise(chapters = n())
+```
+### Normalize word counts
+
+```{r}
+bingnegative <- get_sentiments("bing") %>% 
+  filter(sentiment == "negative")
+
+wordcounts <- tidy_books %>%
+  group_by(book, chapter) %>%
+  summarize(words = n())
+
+tidy_books %>%
+  semi_join(bingnegative) %>% #note semijoin
+  group_by(book, chapter) %>%
+  summarize(negativewords = n()) %>%
+  left_join(wordcounts, by = c("book", "chapter")) %>% #note leftjoin
+  mutate(ratio = negativewords/words) %>%
+  filter(chapter != 0) %>%
+  slice_max(ratio, n = 1) %>% 
+  ungroup()
+```
+
